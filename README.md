@@ -2,6 +2,8 @@
 
 Ever felt the need for an emergency mouse? Here is NetTrackpad. A locally connected mouse (uses TCP, so it may have a tiny bit of latency with high traffic networks) that allows you to turn any smartphone browser into a premium, responsive trackpad for your Linux laptop.
 
+![NetTrackpad UI](UI.jpeg)
+
 It operates directly with the Linux kernel's input subsystem via `/dev/uinput`, bypassing Wayland security restrictions to offer native relative cursor control, double-tap-to-drag selection, two-finger scrolling, and multi-touch gestures.
 
 ## Features

@@ -36,7 +36,12 @@
 
 body {
     font-family: var(--font-sans);
-    background-color: var(--bg-dark);
+    background-color: #121212;
+    background-image: 
+        linear-gradient(45deg, #090909 25%, transparent 25%, transparent 75%, #090909 75%, #090909), 
+        linear-gradient(45deg, #090909 25%, #181818 25%, #181818 75%, #090909 75%, #090909);
+    background-size: 6px 6px;
+    background-position: 0 0, 3px 3px;
     color: var(--text-primary);
     overflow: hidden;
     position: fixed;
@@ -47,30 +52,11 @@ body {
     align-items: center;
 }
 
-/* Background glows */
-.bg-glow-1 {
-    position: absolute;
-    top: -20%;
-    left: -20%;
-    width: 80%;
-    height: 80%;
-    background: radial-gradient(circle, var(--glow-blue) 0%, rgba(0,0,0,0) 70%);
-    z-index: -2;
-    pointer-events: none;
-    filter: blur(40px);
+/* Background glows (disabled for carbon fiber style) */
+.bg-glow-1, .bg-glow-2 {
+    display: none !important;
 }
 
-.bg-glow-2 {
-    position: absolute;
-    bottom: -20%;
-    right: -20%;
-    width: 80%;
-    height: 80%;
-    background: radial-gradient(circle, var(--glow-cyan) 0%, rgba(0,0,0,0) 70%);
-    z-index: -1;
-    pointer-events: none;
-    filter: blur(40px);
-}
 
 /* Glassmorphism Styles */
 .glass-panel {
@@ -367,6 +353,7 @@ body {
 }
 
 /* Trackpad Area */
+/* Trackpad Area - Dell XPS style: matte black, recessed thin borders */
 .trackpad {
     flex: 1;
     position: relative;
@@ -374,7 +361,35 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    border-radius: 24px;
+    background-color: #1a1a1c; /* Matte black / very dark grey */
+    border: 1px solid #08080a; /* Dark border seam */
+    border-radius: 14px; /* XPS corners are slightly rounded */
+    /* Recessed look: inner shadow at top, and very subtle highlight at bottom */
+    box-shadow: 
+        inset 0 3px 6px rgba(0, 0, 0, 0.85), 
+        inset 0 1px 2px rgba(0, 0, 0, 0.5),
+        0 1px 1px rgba(255, 255, 255, 0.04);
+    transition: border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease;
+}
+
+/* Subtly change border color when actively touched */
+.trackpad:active {
+    border-color: #38383e;
+    box-shadow: 
+        inset 0 3px 6px rgba(0, 0, 0, 0.85), 
+        inset 0 1px 2px rgba(0, 0, 0, 0.5),
+        0 0 8px rgba(0, 242, 254, 0.15); /* Very soft cyan glow on the whole recessed tray */
+}
+
+/* Horizontal Mode layout rotations */
+.trackpad.horizontal-mode .trackpad-overlay {
+    transform: rotate(90deg);
+}
+
+.scroll-wheel.horizontal-mode .scroll-label {
+    writing-mode: horizontal-tb;
+    transform: rotate(90deg);
+    text-orientation: unset;
 }
 
 .trackpad-overlay {
@@ -432,7 +447,13 @@ body {
     padding: 16px 0;
     overflow: hidden;
     position: relative;
-    border-radius: 20px;
+    background-color: #1a1a1c;
+    border: 1px solid #08080a;
+    border-radius: 12px;
+    box-shadow: 
+        inset 0 3px 6px rgba(0, 0, 0, 0.85), 
+        inset 0 1px 2px rgba(0, 0, 0, 0.5),
+        0 1px 1px rgba(255, 255, 255, 0.04);
 }
 
 .scroll-label {

@@ -20,9 +20,9 @@ const btnCloseDrawer = document.getElementById('btn-close-drawer');
 const sliderSensitivity = document.getElementById('sensitivity');
 const sensitivityValue = document.getElementById('sensitivity-value');
 const btnFullscreen = document.getElementById('btn-fullscreen');
-const btnScrollToggle = document.getElementById('btn-scroll-toggle');
 const btnScrollbarToggle = document.getElementById('btn-scrollbar-toggle');
 const btnNaturalScrollToggle = document.getElementById('btn-natural-scroll-toggle');
+const btnHorizontalModeToggle = document.getElementById('btn-horizontal-mode-toggle');
 const toastEl = document.getElementById('toast');
 const toastMessageEl = document.getElementById('toast-message');
 
@@ -31,9 +31,9 @@ let socket = null;
 let isAuthenticated = false;
 let storedPassword = localStorage.getItem('trackpad_password') || '';
 let sensitivity = parseFloat(localStorage.getItem('trackpad_sensitivity') || '1.5');
-let isTapToClickEnabled = localStorage.getItem('trackpad_tap_to_click') !== 'false';
 let isScrollbarEnabled = localStorage.getItem('trackpad_scrollbar') !== 'false';
 let isNaturalScroll = localStorage.getItem('trackpad_natural_scroll') !== 'false';
+let isHorizontalMode = localStorage.getItem('trackpad_horizontal_mode') === 'true';
 
 // Touch state variables
 let lastTouchX = 0;
@@ -51,22 +51,21 @@ let lastReleaseY = 0;
 let isDraggingSession = false;
 
 // Scroll state variables
+let lastScrollX = 0;
 let lastScrollY = 0;
 let isTouchingScroll = false;
 
 // State Variables for trackpad gestures
 let isTwoFingerSession = false;
+let lastTwoFingerX = 0;
 let lastTwoFingerY = 0;
+let startTwoFingerX = 0;
 let startTwoFingerY = 0;
 
 // Initialize Settings UI
 sliderSensitivity.value = sensitivity;
 sensitivityValue.textContent = `${sensitivity.toFixed(1)}x`;
-if (isTapToClickEnabled) {
-    btnScrollToggle.classList.add('active');
-} else {
-    btnScrollToggle.classList.remove('active');
-}
+
 
 if (isScrollbarEnabled) {
     btnScrollbarToggle.classList.add('active');
@@ -80,6 +79,16 @@ if (isNaturalScroll) {
     btnNaturalScrollToggle.classList.add('active');
 } else {
     btnNaturalScrollToggle.classList.remove('active');
+}
+
+if (isHorizontalMode) {
+    btnHorizontalModeToggle.classList.add('active');
+    trackpad.classList.add('horizontal-mode');
+    scrollWheel.classList.add('horizontal-mode');
+} else {
+    btnHorizontalModeToggle.classList.remove('active');
+    trackpad.classList.remove('horizontal-mode');
+    scrollWheel.classList.remove('horizontal-mode');
 }
 
 if (storedPassword) {
@@ -207,14 +216,7 @@ sliderSensitivity.addEventListener('input', (e) => {
     localStorage.setItem('trackpad_sensitivity', sensitivity);
 });
 
-// Tap to Click Toggle
-btnScrollToggle.addEventListener('click', () => {
-    isTapToClickEnabled = !isTapToClickEnabled;
-    localStorage.setItem('trackpad_tap_to_click', isTapToClickEnabled);
-    btnScrollToggle.classList.toggle('active');
-    triggerHaptic(20);
-    showToast(isTapToClickEnabled ? 'Tap to click enabled' : 'Tap to click disabled');
-});
+
 
 // Scrollbar Toggle
 btnScrollbarToggle.addEventListener('click', () => {
@@ -238,6 +240,23 @@ btnNaturalScrollToggle.addEventListener('click', () => {
     btnNaturalScrollToggle.classList.toggle('active');
     triggerHaptic(20);
     showToast(isNaturalScroll ? 'Natural scrolling enabled' : 'Traditional scrolling enabled');
+});
+
+// Horizontal Mode Toggle
+btnHorizontalModeToggle.addEventListener('click', () => {
+    isHorizontalMode = !isHorizontalMode;
+    localStorage.setItem('trackpad_horizontal_mode', isHorizontalMode);
+    btnHorizontalModeToggle.classList.toggle('active');
+    if (isHorizontalMode) {
+        trackpad.classList.add('horizontal-mode');
+        scrollWheel.classList.add('horizontal-mode');
+        showToast('Horizontal Mode enabled');
+    } else {
+        trackpad.classList.remove('horizontal-mode');
+        scrollWheel.classList.remove('horizontal-mode');
+        showToast('Horizontal Mode disabled');
+    }
+    triggerHaptic(20);
 });
 
 // Fullscreen Toggle
@@ -278,6 +297,7 @@ trackpad.addEventListener('touchstart', (e) => {
         
         if (timeSinceLastRelease < 300 && distFromLastRelease < 35) {
             isDraggingSession = true;
+            trackpad.classList.add('dragging');
             triggerHaptic(30); // Distinct vibration for dragging
             sendEvent({
                 type: 'click',
@@ -286,6 +306,7 @@ trackpad.addEventListener('touchstart', (e) => {
             });
         } else {
             isDraggingSession = false;
+            trackpad.classList.remove('dragging');
         }
         
         // Show indicator dot
@@ -309,7 +330,9 @@ trackpad.addEventListener('touchstart', (e) => {
         
         const touch1 = e.touches[0];
         const touch2 = e.touches[1];
+        lastTwoFingerX = (touch1.clientX + touch2.clientX) / 2;
         lastTwoFingerY = (touch1.clientY + touch2.clientY) / 2;
+        startTwoFingerX = lastTwoFingerX;
         startTwoFingerY = lastTwoFingerY;
         
         // Place touch indicator between the two fingers
@@ -331,8 +354,16 @@ trackpad.addEventListener('touchmove', (e) => {
     if (numTouches === 1 && !isTwoFingerSession) {
         // Single finger movement -> move cursor
         const touch = e.touches[0];
-        const dx = (touch.clientX - lastTouchX) * sensitivity;
-        const dy = (touch.clientY - lastTouchY) * sensitivity;
+        const raw_dx = touch.clientX - lastTouchX;
+        const raw_dy = touch.clientY - lastTouchY;
+        
+        let dx = raw_dx * sensitivity;
+        let dy = raw_dy * sensitivity;
+        
+        if (isHorizontalMode) {
+            dx = raw_dy * sensitivity;
+            dy = -raw_dx * sensitivity;
+        }
         
         const totalDist = Math.hypot(touch.clientX - startTouchX, touch.clientY - startTouchY);
         if (totalDist > 8) {
@@ -356,21 +387,32 @@ trackpad.addEventListener('touchmove', (e) => {
         // Two fingers movement -> scroll
         const touch1 = e.touches[0];
         const touch2 = e.touches[1];
+        const currentTwoFingerX = (touch1.clientX + touch2.clientX) / 2;
         const currentTwoFingerY = (touch1.clientY + touch2.clientY) / 2;
+        
+        const dx = currentTwoFingerX - lastTwoFingerX;
         const dy = currentTwoFingerY - lastTwoFingerY;
         
-        const totalDist = Math.abs(currentTwoFingerY - startTwoFingerY);
+        let delta = dy;
+        let totalDist = Math.abs(currentTwoFingerY - startTwoFingerY);
+        
+        if (isHorizontalMode) {
+            delta = -(currentTwoFingerX - lastTwoFingerX);
+            totalDist = Math.abs(currentTwoFingerX - startTwoFingerX);
+        }
+        
         if (totalDist > 10) {
             hasMovedSignificantly = true;
         }
         
-        if (Math.abs(dy) >= 2) {
+        if (Math.abs(delta) >= 2) {
             const scrollDir = isNaturalScroll ? 1.5 : -1.5;
             sendEvent({
                 type: 'scroll',
-                dy: dy * scrollDir
+                dy: delta * scrollDir
             });
             lastTwoFingerY = currentTwoFingerY;
+            lastTwoFingerX = currentTwoFingerX;
         }
         
         // Move visual dot between fingers
@@ -402,6 +444,7 @@ trackpad.addEventListener('touchend', (e) => {
         
         if (isDraggingSession) {
             isDraggingSession = false;
+            trackpad.classList.remove('dragging');
             triggerHaptic(20);
             sendEvent({
                 type: 'click',
@@ -422,7 +465,7 @@ trackpad.addEventListener('touchend', (e) => {
             }
         } else {
             // Single-finger tap
-            if (isTapToClickEnabled && !hasMovedSignificantly && duration < 250) {
+            if (!hasMovedSignificantly && duration < 250) {
                 triggerHaptic(15);
                 sendEvent({
                     type: 'click',
@@ -440,6 +483,7 @@ trackpad.addEventListener('touchend', (e) => {
 scrollWheel.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
         const touch = e.touches[0];
+        lastScrollX = touch.clientX;
         lastScrollY = touch.clientY;
         isTouchingScroll = true;
         triggerHaptic(10);
@@ -449,15 +493,22 @@ scrollWheel.addEventListener('touchstart', (e) => {
 scrollWheel.addEventListener('touchmove', (e) => {
     if (isTouchingScroll && e.touches.length === 1) {
         const touch = e.touches[0];
+        const dx = touch.clientX - lastScrollX;
         const dy = touch.clientY - lastScrollY;
         
-        if (Math.abs(dy) >= 2) {
+        let delta = dy;
+        if (isHorizontalMode) {
+            delta = -dx;
+        }
+        
+        if (Math.abs(delta) >= 2) {
             const scrollDir = isNaturalScroll ? 1.0 : -1.0;
             sendEvent({
                 type: 'scroll',
-                dy: dy * scrollDir
+                dy: delta * scrollDir
             });
             lastScrollY = touch.clientY;
+            lastScrollX = touch.clientX;
         }
     }
 });

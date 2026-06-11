@@ -47,7 +47,6 @@
     <div id="main-screen" class="screen">
         <header class="header">
             <div class="brand">
-                <i data-lucide="sparkles" class="brand-icon"></i>
                 <h2>NetTrackpad</h2>
             </div>
             <div class="header-right">
@@ -64,7 +63,7 @@
         <!-- Main Workspace (Full screen trackpad + Scroll area) -->
         <main class="workspace">
             <div class="trackpad-container">
-                <div id="trackpad" class="trackpad glass-panel-interactive">
+                <div id="trackpad" class="trackpad">
                     <div class="trackpad-overlay">
                         <i data-lucide="mouse" class="trackpad-bg-icon"></i>
                         <span class="trackpad-hint">Slide to move • Tap to click • 2-finger scroll</span>
@@ -112,10 +111,6 @@
                 
                 <!-- Action triggers -->
                 <div class="control-group buttons-group">
-                    <button id="btn-scroll-toggle" class="btn btn-secondary active">
-                        <i data-lucide="mouse-pointer-click"></i>
-                        <span>Tap to Click</span>
-                    </button>
                     <button id="btn-scrollbar-toggle" class="btn btn-secondary active">
                         <i data-lucide="scroll"></i>
                         <span>Scrollbar</span>
@@ -123,6 +118,10 @@
                     <button id="btn-natural-scroll-toggle" class="btn btn-secondary active">
                         <i data-lucide="arrow-up-down"></i>
                         <span>Natural Scroll</span>
+                    </button>
+                    <button id="btn-horizontal-mode-toggle" class="btn btn-secondary">
+                        <i data-lucide="rotate-cw"></i>
+                        <span>Horizontal</span>
                     </button>
                     <button id="btn-fullscreen" class="btn btn-secondary">
                         <i data-lucide="maximize"></i>

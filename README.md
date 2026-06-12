@@ -53,10 +53,18 @@ Tap the hamburger menu (☰) at the top-right of the mobile screen to configure:
 
 ## Advanced Launcher Options
 
-You can specify a custom port or static password when launching the server:
+You can specify a custom port, static password, or custom local domain name when launching the server:
 ```bash
-python3 server.py --port 9000 --password mysecretpassword
+python3 server.py --port 9000 --password mysecretpassword --domain nettrack.local
 ```
+
+### Local Domain Name Configuration
+
+By default, the server broadcasts `nettrack.local` on your local network using Multicast DNS (mDNS). This lets you connect simply by going to `http://nettrack.local:8000` (or scanning the QR code) without needing to know the server's IP address.
+
+* **Using `.local` (Recommended)**: Modern systems (iOS, Android 12+, macOS, Windows 10/11, Linux) natively support `.local` domain names. No network configuration is required.
+* **Using custom TLDs like `.pad` (e.g. `nettrack.pad`)**: Standard mDNS resolvers only search the `.local` TLD. If you use a custom domain like `nettrack.pad`, you must configure a local DNS server on your network (such as Pi-hole, AdGuard Home, dnsmasq, or custom router DNS settings) to map `nettrack.pad` to your computer's local IP address.
+
 
 ## Troubleshooting: Permission Denied to /dev/uinput
 

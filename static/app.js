@@ -347,6 +347,7 @@ trackpad.addEventListener('touchstart', (e) => {
 });
 
 trackpad.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Prevent native scrolling, zooming, and rubber-banding
     if (!isTouchingTrackpad) return;
     
     const numTouches = e.touches.length;
@@ -422,7 +423,7 @@ trackpad.addEventListener('touchmove', (e) => {
         touchIndicator.style.left = `${midX - rect.left}px`;
         touchIndicator.style.top = `${midY - rect.top}px`;
     }
-});
+}, { passive: false });
 
 trackpad.addEventListener('touchend', (e) => {
     if (!isTouchingTrackpad) return;
@@ -479,6 +480,26 @@ trackpad.addEventListener('touchend', (e) => {
     }
 });
 
+trackpad.addEventListener('touchcancel', () => {
+    isTouchingTrackpad = false;
+    isTwoFingerSession = false;
+    
+    // Hide touch indicator
+    touchIndicator.style.transform = 'translate(-50%, -50%) scale(0)';
+    touchIndicator.style.opacity = '0';
+    touchIndicator.style.borderColor = 'var(--primary-cyan)'; // Reset color
+    
+    if (isDraggingSession) {
+        isDraggingSession = false;
+        trackpad.classList.remove('dragging');
+        sendEvent({
+            type: 'click',
+            button: 'left',
+            action: 'up'
+        });
+    }
+});
+
 // Scroll Wheel Touch Events
 scrollWheel.addEventListener('touchstart', (e) => {
     if (e.touches.length === 1) {
@@ -491,6 +512,7 @@ scrollWheel.addEventListener('touchstart', (e) => {
 });
 
 scrollWheel.addEventListener('touchmove', (e) => {
+    e.preventDefault(); // Prevent native browser scrolling/rubber-banding
     if (isTouchingScroll && e.touches.length === 1) {
         const touch = e.touches[0];
         const dx = touch.clientX - lastScrollX;
@@ -511,9 +533,13 @@ scrollWheel.addEventListener('touchmove', (e) => {
             lastScrollX = touch.clientX;
         }
     }
-});
+}, { passive: false });
 
 scrollWheel.addEventListener('touchend', () => {
+    isTouchingScroll = false;
+});
+
+scrollWheel.addEventListener('touchcancel', () => {
     isTouchingScroll = false;
 });
 

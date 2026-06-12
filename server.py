@@ -12,12 +12,71 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 import qrcode
 
+# Zeroconf integration for local domain resolution (mDNS)
+zeroconf_available = False
+zc = None
+info = None
+
+try:
+    from zeroconf import Zeroconf, ServiceInfo
+    zeroconf_available = True
+except ImportError:
+    pass
+
 # Setup argument parser
 parser = argparse.ArgumentParser(description="NetTrackpad: Secure Local Mouse Controller")
 parser.add_argument("--host", default="0.0.0.0", help="Host IP to bind the server (default: 0.0.0.0)")
 parser.add_argument("--port", type=int, default=8000, help="Port to run the server (default: 8000)")
 parser.add_argument("--password", default=None, help="Password for clients to connect (default: random 4-digit code)")
+parser.add_argument("--domain", default="nettrack.local", help="Local domain name for the server (default: nettrack.local)")
 args = parser.parse_args()
+
+def start_zeroconf(ip: str, port: int, domain: str):
+    global zc, info
+    if not domain or domain.lower() in ("none", "null", ""):
+        return False
+    if not zeroconf_available:
+        print("\n [!] 'zeroconf' package is not installed. Local domain resolution is disabled.")
+        return False
+    
+    # Ensure domain ends with a dot
+    zc_domain = domain
+    if not zc_domain.endswith('.'):
+        zc_domain += '.'
+        
+    try:
+        # Standard local DNS resolution via mDNS generally requires the .local TLD.
+        if not domain.endswith(".local"):
+            print(f"\n [!] Warning: Custom domain '{domain}' does not end in '.local'.")
+            print(f"     Standard multicast DNS (mDNS) clients will not resolve this name automatically.")
+            print(f"     You will need to configure your local DNS server (e.g., Pi-hole, dnsmasq, router)")
+            print(f"     to resolve '{domain}' to this machine's IP address ({ip}).")
+            
+        info = ServiceInfo(
+            type_="_http._tcp.local.",
+            name="NetTrackpad._http._tcp.local.",
+            addresses=[socket.inet_aton(ip)],
+            port=port,
+            properties={},
+            server=zc_domain
+        )
+        zc = Zeroconf()
+        zc.register_service(info)
+        return True
+    except Exception as e:
+        print(f"\n [!] Failed to register local domain '{domain}' via mDNS: {e}")
+        zc = None
+        info = None
+        return False
+
+def stop_zeroconf():
+    global zc, info
+    if zc and info:
+        try:
+            zc.unregister_service(info)
+            zc.close()
+        except Exception:
+            pass
 
 # Generate password if not provided
 if args.password is None:
@@ -152,12 +211,19 @@ async def websocket_endpoint(websocket: WebSocket, password: str = Query(...)):
         print(f"Error in connection handler: {e_err}")
 
 # Print startup information
-def print_startup_banner(ip, port, pwd):
-    url = f"http://{ip}:{port}"
+def print_startup_banner(ip, port, pwd, domain=None):
+    ip_url = f"http://{ip}:{port}"
+    domain_url = f"http://{domain}:{port}" if domain else None
+    display_url = domain_url if domain_url else ip_url
+    
     print("\n" + "═"*60)
     print(" NetTrackpad - Local Network Mouse Server  🚀".center(60))
     print("═"*60)
-    print(f" Local Link:    \033[1;36m{url}\033[0m")
+    if domain_url:
+        print(f" Local Domain:    \033[1;36m{domain_url}\033[0m")
+        print(f" Local IP Link:   \033[1;32m{ip_url}\033[0m")
+    else:
+        print(f" Local Link:      \033[1;36m{ip_url}\033[0m")
     print(f" Access Password: \033[1;33m{pwd}\033[0m")
     print("═"*60)
     print("  Scan the QR code below to open on your phone:")
@@ -165,7 +231,7 @@ def print_startup_banner(ip, port, pwd):
     
     # Generate compact ASCII QR Code
     qr = qrcode.QRCode(version=1, box_size=1, border=1)
-    qr.add_data(url)
+    qr.add_data(display_url)
     qr.make(fit=True)
     qr.print_ascii(invert=True)
     print("="*60)
@@ -173,7 +239,16 @@ def print_startup_banner(ip, port, pwd):
 
 if __name__ == "__main__":
     local_ip = get_local_ip()
-    print_startup_banner(local_ip, args.port, EXPECTED_PASSWORD)
     
-    # Run the Uvicorn server
-    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    zc_started = False
+    if args.domain:
+        zc_started = start_zeroconf(local_ip, args.port, args.domain)
+        
+    print_startup_banner(local_ip, args.port, EXPECTED_PASSWORD, args.domain if zc_started else None)
+    
+    try:
+        # Run the Uvicorn server
+        uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    finally:
+        if zc_started:
+            stop_zeroconf()
